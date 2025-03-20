@@ -1,140 +1,135 @@
 # Flow MCP Server
 
-Model Context Protocol (MCP) server for Flow blockchain with direct RPC communication.
-
-This server implements the Model Context Protocol and provides tools for interacting with the Flow blockchain directly through RPC calls. It can be used with AI assistants that support MCP.
+A Model Context Protocol (MCP) server for interacting with the Flow blockchain. This server enables AI assistants to access Flow blockchain data and perform operations through a standardized interface.
 
 ## Features
 
-- Get account balances (FLOW and tokens)
-- Execute Flow scripts
-- Send transactions
-- Resolve domains to Flow addresses (.find and .fn)
-- Interact with Flow contracts
-- Full MCP compliance for AI agent integration
+- Balance checking for Flow and fungible tokens
+- Domain resolution for `.find` and `.fn` domains
+- Script execution for reading blockchain data
+- Transaction submission and monitoring
+- Account information retrieval
+- Flow configuration based on environment variables
 
 ## Installation
 
-### Option 1: Run directly with npx (recommended for quick use)
+### Using npx (Recommended)
 
 ```bash
-# Run in HTTP server mode
-npx @outblock/flow-mcp-server
-
-# Run in stdio mode (for AI agent integration)
-npx @outblock/flow-mcp-server --stdio
+npx -y @outblock/flow-mcp-server --stdio
 ```
 
-### Option 2: Install locally for development
+Or specify HTTP mode with a port:
 
 ```bash
-# Clone the repository
+npx -y @outblock/flow-mcp-server --port 3000
+```
+
+### Local Installation (For Development)
+
+```bash
 git clone https://github.com/lmcmz/flow-mcp-server.git
 cd flow-mcp-server
-
-# Install dependencies
 npm install
-
-# Create a .env file (optional)
-cp .env.example .env
+npm run build
+npm start
 ```
 
 ## Usage
 
-### Option 1: Starting via npx
+### Running with npx
 
 ```bash
-# Run in HTTP server mode on default port (3000)
-npx @outblock/flow-mcp-server
+# Run in stdio mode (for AI assistant integration)
+npx -y @outblock/flow-mcp-server --stdio
 
-# Run in HTTP server mode on custom port
-npx @outblock/flow-mcp-server --port 8080
-
-# Run in stdio mode (for AI agent integration)
-npx @outblock/flow-mcp-server --stdio
+# Run as HTTP server on port 3000
+npx -y @outblock/flow-mcp-server --port 3000
 
 # Specify Flow network
-npx @outblock/flow-mcp-server --network testnet
+npx -y @outblock/flow-mcp-server --port 3000 --network testnet
 ```
 
-### Option 2: Starting the local development server
+### Running Local Development Server
 
 ```bash
-# Run in development mode with hot reload
-npm run dev
-
-# Run in production mode
-npm run start
-
-# Build the server
+# Run in stdio mode
 npm run build
+npm start
 
-# Run with stdio mode directly
-node src/index.js
+# Run as HTTP server on port 3000
+npm run build
+PORT=3000 npm start
+
+# For development with auto-reload
+npm run dev
 ```
 
-### Environment Variables (optional)
+## Configuration
 
-Create a `.env` file with your configuration:
+The server can be configured using environment variables:
 
-```
-# Server configuration
-PORT=3000
+- `PORT` - HTTP port to listen on (if not set, defaults to stdio mode)
+- `FLOW_NETWORK` - Flow network to connect to (mainnet, testnet, emulator)
+- `FLOW_ACCESS_NODE` - Custom Flow access node URL
+- `LOG_LEVEL` - Logging level (debug, info, warn, error)
 
-# Flow network configuration (mainnet or testnet)
-FLOW_NETWORK=mainnet
-FLOW_ACCESS_NODE=https://rest-mainnet.onflow.org
+## Using with AI Assistants
 
-# Optional: Add your default keys for development
-# FLOW_PRIVATE_KEY=
-# FLOW_ADDRESS=
-```
+When integrating with AI assistants like Claude, you can start the MCP server in stdio mode and connect it to your assistant's tool configuration.
 
-## Usage with AI assistants
+Example Claude tool configuration:
 
-The server implements the Model Context Protocol which allows it to be used with AI assistants that support MCP.
-
-### Example usage with Claude
-
-```
-To use the Flow blockchain, I'll need to use a Flow MCP server. Please run:
-
-npx @outblock/flow-mcp-server --stdio
-
-Then I'll be able to check account balances, execute scripts, and interact with Flow contracts.
+```json
+{
+  "tools": [
+    {
+      "name": "flow-mcp-server",
+      "command": "npx -y @outblock/flow-mcp-server --stdio"
+    }
+  ]
+}
 ```
 
-## API Endpoints
+## HTTP API Endpoints
 
 When running in HTTP mode, the following endpoints are available:
 
-- `/sse` - SSE endpoint for real-time communication
-- `/messages` - Endpoint for sending tool requests
+- `/sse` - Server-Sent Events endpoint for real-time updates
+- `/messages` - POST endpoint for sending tool requests
 - `/health` - Health check endpoint
 - `/` - Server information
 
-### Example HTTP API call
+Example HTTP API call:
 
 ```bash
 curl -X POST http://localhost:3000/messages \
   -H "Content-Type: application/json" \
   -d '{
-    "tool": "get_flow_balance",
-    "parameters": {
-      "address": "0x1654653399040a61",
-      "network": "mainnet"
+    "tool_request": {
+      "name": "get_balance",
+      "parameters": {
+        "address": "0x2d4c3caffbeab845",
+        "network": "mainnet"
+      }
     }
   }'
 ```
 
 ## Available Tools
 
-- `get_flow_balance` - Get FLOW balance for an address
-- `get_token_balance` - Get token balance for an address
+- `get_balance` - Get Flow balance for an address
+- `get_token_balance` - Get fungible token balance
+- `get_account` - Get account information
+- `resolve_domain` - Resolve a .find or .fn domain to an address
 - `execute_script` - Execute a Cadence script
-- `send_transaction` - Send a signed transaction to the Flow blockchain
-- `resolve_domain` - Resolve a .find or .fn domain to a Flow address
-- `get_account_info` - Get detailed information about a Flow account
+- `send_transaction` - Send a transaction to the blockchain
+- `get_transaction` - Get transaction details by ID
+
+## Version History
+
+- **v0.1.1** - Bug fix for formatArguments import issue in transaction service
+- **v0.1.0** - Initial release with basic Flow blockchain integration
 
 ## License
 

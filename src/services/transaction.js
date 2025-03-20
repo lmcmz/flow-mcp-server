@@ -1,85 +1,75 @@
 import * as fcl from '@onflow/fcl';
 import * as t from '@onflow/types';
-import { resolveDomain } from './domain.js';
 import { formatArguments, getFlowType } from './script.js';
+import { resolveDomain } from './domain.js';
 
 /**
  * Send a transaction to the Flow blockchain
- * @param {string} transaction - Cadence transaction code
- * @param {string} signerAddress - Address of the transaction signer
- * @param {string} signerPrivateKey - Private key of the transaction signer
- * @param {Array} args - Transaction arguments
- * @param {number} gasLimit - Gas limit for the transaction
- * @returns {Promise<object>} - Transaction result
+ * @param {Object} params - Transaction parameters
+ * @param {string} params.transaction - Cadence transaction script
+ * @param {Array} params.args - Transaction arguments
+ * @param {string} params.signerId - Signer address (optional)
+ * @param {string} params.authorization - Optional authorization function name or code
+ * @returns {Promise<Object>} - Transaction result
  */
-export async function sendTransaction(
-  transaction, 
-  signerAddress, 
-  signerPrivateKey, 
-  args = [], 
-  gasLimit = 1000
-) {
+export async function sendTransaction({ transaction, args = [], signerId, authorization }) {
   try {
     if (!transaction) {
-      throw new Error('Transaction code is required');
-    }
-    
-    if (!signerAddress) {
-      throw new Error('Signer address is required');
-    }
-    
-    if (!signerPrivateKey) {
-      throw new Error('Signer private key is required');
-    }
-    
-    // Resolve domain to address if needed
-    if (signerAddress.includes('.find') || signerAddress.includes('.fn')) {
-      const resolved = await resolveDomain(signerAddress);
-      signerAddress = resolved.address;
-    }
-    
-    // Ensure address starts with 0x
-    if (!signerAddress.startsWith('0x')) {
-      signerAddress = `0x${signerAddress}`;
+      throw new Error('Transaction script is required');
     }
     
     // Process and format arguments
     const formattedArgs = await formatArguments(args);
     
-    // Configure transaction authorization
-    const authz = fcl.authz({
-      keyId: 0, // Assuming index 0 key
-      addr: signerAddress,
-      signingFunction: async (signable) => {
-        // This function signs the transaction with the provided private key
-        // In a production environment, consider using a more secure key management solution
-        const signature = await signWithPrivateKey(signerPrivateKey, signable.message);
-        return {
-          addr: signerAddress,
-          keyId: 0,
-          signature
-        };
+    // Set up transaction options
+    const txOptions = {
+      cadence: transaction,
+      args: (arg, t) => formattedArgs.map(a => arg(a.value, getFlowType(a.type))),
+      proposer: fcl.authz,
+      payer: fcl.authz,
+      authorizations: [fcl.authz],
+      limit: 1000
+    };
+    
+    // If a specific signer is provided, resolve domain if needed
+    if (signerId) {
+      let address = signerId;
+      
+      // If value looks like a domain, resolve it
+      if (typeof address === 'string' && (address.includes('.find') || address.includes('.fn'))) {
+        const resolved = await resolveDomain(address);
+        address = resolved.address;
       }
-    });
+      
+      // Ensure address starts with 0x
+      if (typeof address === 'string' && !address.startsWith('0x')) {
+        address = `0x${address}`;
+      }
+      
+      // Use the address for signing
+      // Note: In a production environment, you would likely integrate
+      // with a proper signing service. This is a simplified implementation.
+      txOptions.proposer = fcl.currentUser().authorization;
+      txOptions.payer = fcl.currentUser().authorization;
+      txOptions.authorizations = [fcl.currentUser().authorization];
+    }
     
     // Send transaction
     const transactionId = await fcl.send([
-      fcl.transaction(transaction),
-      fcl.args(formattedArgs.map(a => fcl.arg(a.value, getFlowType(a.type)))),
-      fcl.limit(gasLimit),
-      fcl.proposer(authz),
-      fcl.payer(authz),
-      fcl.authorizations([authz])
-    ]);
+      fcl.transaction(txOptions.cadence),
+      fcl.args(txOptions.args),
+      fcl.proposer(txOptions.proposer),
+      fcl.payer(txOptions.payer),
+      fcl.authorizations(txOptions.authorizations),
+      fcl.limit(txOptions.limit),
+    ]).then(fcl.decode);
     
     // Wait for transaction to be sealed
-    const result = await fcl.tx(transactionId).onceSealed();
+    const txResult = await fcl.tx(transactionId).onceSealed();
     
     return {
-      transactionId: result.transactionId,
-      status: result.status === 4 ? 'SEALED' : 'PENDING',
-      statusCode: result.status,
-      events: result.events,
+      transactionId,
+      result: txResult,
       network: fcl.config().get('flow.network')
     };
   } catch (error) {
@@ -89,33 +79,31 @@ export async function sendTransaction(
 }
 
 /**
- * Sign a message with a private key
- * @param {string} privateKey - Private key in hex format
- * @param {string} message - Message to sign
- * @returns {Promise<string>} - Signature in hex format
+ * Get a transaction by its ID
+ * @param {string} transactionId - Transaction ID
+ * @returns {Promise<Object>} - Transaction details
  */
-async function signWithPrivateKey(privateKey, message) {
+export async function getTransaction(transactionId) {
   try {
-    // Remove '0x' prefix if present
-    if (privateKey.startsWith('0x')) {
-      privateKey = privateKey.substring(2);
+    if (!transactionId) {
+      throw new Error('Transaction ID is required');
     }
     
-    // In a real implementation, we would use a proper cryptographic library
-    // For this prototype, we'll use a placeholder function
-    // TODO: Implement actual signing logic
+    // Ensure transaction ID starts with 0x if it's a string
+    if (typeof transactionId === 'string' && !transactionId.startsWith('0x')) {
+      transactionId = `0x${transactionId}`;
+    }
     
-    // This is a simplified implementation and should be replaced with actual signing logic
-    // const signature = await crypto.sign(privateKey, message);
+    // Get transaction from FCL
+    const txResult = await fcl.tx(transactionId).onceSealed();
     
-    // For demonstration purposes only - this is not a real implementation
-    const signature = "SIMULATED_SIGNATURE";
-    
-    console.warn("SECURITY WARNING: Using simulated signature. Implement proper signing logic for production use.");
-    
-    return signature;
+    return {
+      transactionId,
+      result: txResult,
+      network: fcl.config().get('flow.network')
+    };
   } catch (error) {
-    console.error("Error signing message:", error);
-    throw new Error(`Failed to sign message: ${error.message}`);
+    console.error("Error getting transaction:", error);
+    throw new Error(`Failed to get transaction: ${error.message}`);
   }
 }

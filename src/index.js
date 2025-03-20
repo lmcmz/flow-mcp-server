@@ -1,193 +1,144 @@
-#!/usr/bin/env node
-// This shebang supports both Node.js and Bun environments
-// For Bun-specific environments, you can change this back to #!/usr/bin/env bun
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import SSE from 'express-sse';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
+import * as fcl from '@onflow/fcl';
 
 import { handleToolCall } from './tools/handler.js';
 import { toolDefinitions } from './tools/definitions.js';
-import { parseArgs, showHelp } from './cli.js';
-import { networks } from './config/networks.js';
 
 // Load environment variables
 dotenv.config();
 
-// Get package.json for version info
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '..', 'package.json'), 'utf8')
+// Configure FCL based on environment variables
+const network = process.env.FLOW_NETWORK || 'mainnet';
+const accessNode = process.env.FLOW_ACCESS_NODE || (
+  network === 'testnet' 
+    ? 'https://rest-testnet.onflow.org' 
+    : 'https://rest-mainnet.onflow.org'
 );
 
-// Parse command line arguments
-const config = parseArgs();
+fcl.config()
+  .put('accessNode.api', accessNode)
+  .put('flow.network', network);
 
-// Show help and exit if requested
-if (config.help) {
-  showHelp();
-  process.exit(0);
-}
+console.error(`Flow network configured: ${network} (${accessNode})`);
 
-// Show version and exit if requested
-if (config.version) {
-  console.log(`Flow MCP Server v${packageJson.version}`);
-  process.exit(0);
-}
+// Initialize Express app and SSE
+const app = express();
+const port = process.env.PORT || 3000;
+const sse = new SSE();
 
-// Validate network
-if (!networks[config.network.toLowerCase()]) {
-  console.error(`Error: Unsupported network "${config.network}"`);
-  console.log(`Available networks: ${Object.keys(networks).join(', ')}`);
-  process.exit(1);
-}
+// Middleware
+app.use(bodyParser.json());
+app.use(cors());
 
-// Set network configuration
-if (!process.env.FLOW_NETWORK) {
-  process.env.FLOW_NETWORK = config.network;
-}
-
-// Set default access node based on network if not specified
-if (!process.env.FLOW_ACCESS_NODE && !config.accessNode) {
-  const networkConfig = networks[config.network.toLowerCase()];
-  process.env.FLOW_ACCESS_NODE = networkConfig.accessNode;
-} else if (config.accessNode) {
-  process.env.FLOW_ACCESS_NODE = config.accessNode;
-}
-
-// Check for stdio mode
-const isStdioMode = config.stdio;
-
-// Only initialize express if not in stdio mode
-let app, sse;
-if (!isStdioMode) {
-  app = express();
-  const port = config.port;
-
-  // Initialize SSE for streaming responses
-  sse = new SSE();
-
-  // Middleware
-  app.use(bodyParser.json());
-  app.use(cors());
-
-  // Routes
-  app.get('/', (req, res) => {
-    res.json({
-      name: 'flow-mcp-server',
-      version: packageJson.version,
-      description: 'Model Context Protocol (MCP) server for Flow blockchain with direct RPC communication',
-      network: process.env.FLOW_NETWORK
-    });
+// Routes
+app.get('/', (req, res) => {
+  res.json({
+    name: '@outblock/flow-mcp-server',
+    version: '0.1.0',
+    description: 'Model Context Protocol (MCP) server for Flow blockchain with direct RPC communication',
+    network: fcl.config().get('flow.network')
   });
+});
 
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    network: fcl.config().get('flow.network')
   });
+});
 
-  // SSE endpoint
-  app.get('/sse', (req, res) => {
-    sse.init(req, res);
-  });
+// SSE endpoint
+app.get('/sse', (req, res) => {
+  sse.init(req, res);
+});
 
-  // MCP messages endpoint
-  app.post('/messages', async (req, res) => {
-    const { tool, parameters } = req.body;
-    
-    if (!tool) {
-      return res.status(400).json({ error: 'Tool name is required' });
-    }
-    
-    try {
-      const result = await handleToolCall(tool, parameters, sse);
-      res.json({ result });
-    } catch (error) {
-      console.error('Error handling tool call:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // MCP tools metadata endpoint
-  app.get('/tools', (req, res) => {
-    res.json(toolDefinitions);
-  });
-
-  // Network information endpoint
-  app.get('/networks', (req, res) => {
-    const network = process.env.FLOW_NETWORK.toLowerCase();
-    res.json({
-      current: network,
-      available: Object.keys(networks),
-      accessNode: process.env.FLOW_ACCESS_NODE,
-      contracts: networks[network].contracts,
-      auditors: networks[network].auditors
-    });
-  });
-
-  // Start HTTP server
-  const startServer = (port) => {
-    try {
-      const server = app.listen(port, () => {
-        console.log(`Flow MCP server v${packageJson.version} listening on port ${port}`);
-        console.log(`Using Flow network: ${process.env.FLOW_NETWORK}`);
-        console.log(`Using Flow access node: ${process.env.FLOW_ACCESS_NODE}`);
-        console.log(`FCL configured with ${Object.keys(networks[process.env.FLOW_NETWORK.toLowerCase()].contracts).length} contract addresses`);
-      });
-      
-      server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          console.log(`Port ${port} is in use, trying ${port + 1}...`);
-          startServer(port + 1);
-        } else {
-          console.error('Server error:', err);
-        }
-      });
-    } catch (err) {
-      console.error('Failed to start server:', err);
-    }
-  };
+// MCP messages endpoint
+app.post('/messages', async (req, res) => {
+  const { tool, parameters } = req.body;
   
-  startServer(port);
-}
+  if (!tool) {
+    return res.status(400).json({ error: 'Tool name is required' });
+  }
+  
+  try {
+    const result = await handleToolCall(tool, parameters, sse);
+    res.json({ result });
+  } catch (error) {
+    console.error('Error handling tool call:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-// Handle stdio mode
-if (isStdioMode) {
-  console.log('Running in stdio mode for MCP integration');
-  console.log(`Using Flow network: ${process.env.FLOW_NETWORK}`);
-  console.log(`FCL configured with ${Object.keys(networks[process.env.FLOW_NETWORK.toLowerCase()].contracts).length} contract addresses`);
+// MCP tools metadata endpoint
+app.get('/tools', (req, res) => {
+  res.json(toolDefinitions);
+});
+
+// Handle stdio mode if no PORT is set
+if (!process.env.PORT) {
+  console.error('Running in stdio mode. Use PORT env variable to enable HTTP server.');
   
   process.stdin.setEncoding('utf8');
-  let buffer = '';
   
-  process.stdin.on('data', async (chunk) => {
-    buffer += chunk;
+  // Send tool definitions as first message to help AI know what tools are available
+  process.stdout.write(JSON.stringify({ 
+    event: 'init', 
+    tools: toolDefinitions,
+    network: fcl.config().get('flow.network')
+  }) + '\\n');
+  
+  process.stdin.on('data', async (data) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(data);
+    } catch (error) {
+      process.stdout.write(JSON.stringify({ 
+        error: 'Invalid JSON input', 
+        details: error.message 
+      }) + '\\n');
+      return;
+    }
+    
+    const { tool, parameters } = parsed;
+    
+    if (!tool) {
+      process.stdout.write(JSON.stringify({ 
+        error: 'Tool name is required'
+      }) + '\\n');
+      return;
+    }
     
     try {
-      // Try to parse complete JSON objects
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); // Keep the last incomplete line in the buffer
-      
-      for (const line of lines) {
-        if (line.trim()) {
-          const { tool, parameters } = JSON.parse(line);
-          const result = await handleToolCall(tool, parameters);
-          process.stdout.write(JSON.stringify({ result }) + '\n');
-        }
-      }
+      const result = await handleToolCall(tool, parameters);
+      process.stdout.write(JSON.stringify({ result }) + '\\n');
     } catch (error) {
-      // If JSON parsing fails, it might be an incomplete message
-      // Just continue collecting more data
-      if (buffer.length > 1000000) {
-        // Safety limit to prevent memory issues
-        buffer = '';
-        process.stdout.write(JSON.stringify({ error: 'Message too large' }) + '\n');
-      }
+      console.error('Error handling tool call:', error);
+      process.stdout.write(JSON.stringify({ 
+        error: error.message,
+        stack: error.stack
+      }) + '\\n');
     }
+  });
+  
+  // Handle SIGTERM and SIGINT
+  process.on('SIGTERM', () => {
+    console.error('Received SIGTERM, shutting down...');
+    process.exit(0);
+  });
+  
+  process.on('SIGINT', () => {
+    console.error('Received SIGINT, shutting down...');
+    process.exit(0);
+  });
+} else {
+  // Start HTTP server
+  app.listen(port, () => {
+    console.error(`Flow MCP server listening on port ${port}`);
+    console.error(`Running on network: ${fcl.config().get('flow.network')}`);
   });
 }
 

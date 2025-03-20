@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "flow-mcp": {
+      "command": "npx",
+      "args": [
+        "@outblock/flow-mcp-server"
+      ]
+    }
+  }
+} 

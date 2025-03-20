@@ -23,15 +23,20 @@ This server implements the Model Context Protocol and provides tools for interac
 
 2. Install dependencies:
    ```bash
+   # Using npm
    npm install
+   
+   # Using Bun (recommended)
+   bun install
    ```
 
-3. Create a `.env` file with your configuration:
+3. (Optional) Create a `.env` file with your configuration:
    ```
    PORT=3000
-   FLOW_ACCESS_NODE=https://rest-mainnet.onflow.org
-   FLOW_NETWORK=mainnet
+   FLOW_NETWORK=testnet  # Optional: defaults to 'mainnet' if not specified
    ```
+
+   The server automatically uses the Flow mainnet by default. You only need to configure the environment if you want to use the testnet or a custom port.
 
 ## Usage
 
@@ -39,13 +44,112 @@ This server implements the Model Context Protocol and provides tools for interac
 
 ```bash
 # Run in development mode with hot reload
-npm run dev
+bun dev
 
 # Run in production mode
-npm run start
+bun start
 
 # Build the server
-npm run build
+bun run build
+```
+
+### Using NPX Command
+
+You can run the MCP server directly using npx without installation:
+
+```bash
+# Run using npx
+npx flow-mcp-server
+
+# Specify network and port
+npx flow-mcp-server --network testnet --port 3001
+
+# Get help for all options
+npx flow-mcp-server --help
+```
+
+Or install it globally:
+
+```bash
+# Install globally
+npm install -g flow-mcp-server
+
+# Run the globally installed version
+flow-mcp-server
+```
+
+### Command Line Options
+
+```
+Options:
+  -p, --port <port>          Port to run the server on (default: 3000)
+  -n, --network <network>    Flow network to connect to (default: mainnet)
+  -a, --access-node <url>    Custom Flow access node URL
+  --stdio                    Run in stdio mode for direct integration
+  -h, --help                 Show this help text
+```
+
+### Network Configuration
+
+The server automatically configures FCL with the appropriate contract addresses for the selected network. The following networks are supported:
+
+#### Mainnet
+The mainnet configuration includes contract addresses for:
+```javascript
+{
+  NonFungibleToken: '0x1d7e57aa55817448',
+  FungibleToken: '0xf233dcee88fe0abe',
+  MetadataViews: '0x1d7e57aa55817448',
+  NFTCatalog: '0x49a7cda3a1eecc29',
+  NFTRetrieval: '0x49a7cda3a1eecc29',
+  Find: '0x097bafa4e0b48eef',
+  Flowns: '0x233eb012d34b0070',
+  Domains: '0x233eb012d34b0070',
+  FlowToken: '0x1654653399040a61',
+  TransactionGeneration: '0xe52522745adf5c34',
+  FlowFees: '0xf919ee77447b7497',
+  StringUtils: '0xa340dc0a4ec828ab',
+  HybridCustody: '0xd8a7e05a7ac670c0',
+  ViewResolver: '0x1d7e57aa55817448'
+}
+```
+
+#### Testnet
+The testnet configuration includes contract addresses for testnet environment.
+
+You can also see the current network configuration by accessing the `/networks` endpoint.
+
+### MCP Configuration
+
+To configure an AI assistant to use Flow MCP, use the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "flow-mcp": {
+      "command": "npx",
+      "args": ["-y", "flow-mcp-server", "--stdio"],
+      "env": {
+        "FLOW_NETWORK": "mainnet"  // Optional: defaults to 'mainnet', can be set to 'testnet'
+      }
+    }
+  }
+}
+```
+
+Or with direct HTTP API:
+
+```json
+{
+  "mcpServers": {
+    "flow-mcp": {
+      "serverUrl": "http://localhost:3000",
+      "env": {
+        "FLOW_NETWORK": "mainnet"
+      }
+    }
+  }
+}
 ```
 
 ### Usage with AI assistants
@@ -58,6 +162,7 @@ The server implements the Model Context Protocol which allows it to be used with
 - `/messages` - Endpoint for sending tool requests
 - `/health` - Health check endpoint
 - `/` - Server information
+- `/networks` - Network configuration information
 
 ## Available Tools
 
@@ -66,6 +171,22 @@ The server implements the Model Context Protocol which allows it to be used with
 - `execute_script` - Execute a Cadence script
 - `send_transaction` - Send a signed transaction to the Flow blockchain
 - `resolve_domain` - Resolve a .find or .fn domain to a Flow address
+
+## Publishing to npm
+
+If you want to publish your own version of this package:
+
+```bash
+# Login to npm
+npm login
+
+# Publish the package
+npm publish
+
+# Update the package
+npm version patch  # or minor or major
+npm publish
+```
 
 ## License
 

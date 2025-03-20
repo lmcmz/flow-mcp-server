@@ -84,17 +84,27 @@ export async function getAccountNFTs(address) {
 
     // Script to find public capability paths in the account
     const script = `
-      pub fun main(address: Address): [String] {
-        let account = getAccount(address)
-        let paths: [String] = []
-        
-        for path in account.capabilities.keys {
-          if path.toString().contains("Collection") || path.toString().contains("NFT") {
-            paths.append(path.toString())
-          }
-        }
-        
-        return paths
+      import NonFungibleToken from 0xNonFungibleToken
+      
+      access(all) fun main(_ address: Address): {String: Int} {
+          let account = getAuthAccount<auth(BorrowValue) &Account>(address)
+          let data: {String: Int} = {}
+          let collectionType: Type = Type<@{NonFungibleToken.Collection}>()
+
+          // Iterate over each public path
+          account.storage.forEachStored(fun (path: StoragePath, type: Type): Bool {
+              // Return early if the collection is broken or is not the type we're looking for
+              if type.isRecovered || (!type.isInstance(collectionType) && !type.isSubtype(of: collectionType)) {
+                  return true
+              }
+              if let collectionRef = account.storage.borrow<&{NonFungibleToken.Collection}>(from: path) {
+                  // Return early if no Resolver found in the Collection
+                  let ids: [UInt64]= collectionRef.getIDs()
+                  data.insert(key: type.identifier, ids.length)
+              }
+              return true
+          })
+          return data
       }
     `;
 

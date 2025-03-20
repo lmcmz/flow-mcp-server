@@ -1,6 +1,7 @@
 import * as fcl from '@onflow/fcl';
 import * as t from '@onflow/types';
 import { resolveDomain } from './domain.js';
+import { getTokenBalancesFromStorage } from './token_storage.js';
 
 /**
  * Get FLOW token balance for an address
@@ -20,21 +21,21 @@ export async function getFlowBalance(address) {
       address = `0x${address}`;
     }
 
-    // Cadence script to get account balance
+    // Updated Cadence script based on FRW-web-next
     const script = `
-      import FlowToken from 0x1654653399040a61
       import FungibleToken from 0xf233dcee88fe0abe
-      
-      pub fun main(address: Address): UFix64 {
+      import FlowToken from 0x1654653399040a61
+
+      access(all) fun main(address: Address): UFix64 {
         let account = getAccount(address)
-        let vaultRef = account.getCapability(/public/flowTokenBalance)
-          .borrow<&FlowToken.Vault{FungibleToken.Balance}>()
-          
-        if vaultRef == nil {
-          return 0.0
+        let vaultRef = account.capabilities.borrow<&{FungibleToken.Balance}>(/public/flowTokenBalance)
+        ?? nil
+
+        if vaultRef != nil {
+          return vaultRef!.balance
         }
         
-        return vaultRef!.balance
+        return 0.0
       }
     `;
 
@@ -83,85 +84,24 @@ export async function getTokenBalance(address, tokenIdentifier) {
 
     const contractAddress = parts[1];
     const contractName = parts[2];
-    const resourceName = parts[3];
 
-    // Construct public path for the token
-    // This is a common pattern but may need adjustment for specific tokens
-    const publicPath = `/public/${contractName.toLowerCase()}Balance`;
-
-    // Create a Cadence script to fetch the token balance
-    const script = `
-      import ${contractName} from 0x${contractAddress}
-      import FungibleToken from 0xf233dcee88fe0abe
-      
-      pub fun main(address: Address, publicPath: String): UFix64 {
-        let account = getAccount(address)
-        let vaultRef = account.getCapability(publicPath)
-          .borrow<&${contractName}.Vault{FungibleToken.Balance}>()
-          
-        if vaultRef == nil {
-          return 0.0
-        }
-        
-        return vaultRef!.balance
+    // Use getTokenBalancesFromStorage to get all token balances
+    const allBalances = await getTokenBalancesFromStorage(address);
+    
+    // Look for the specific token in the results
+    let balance = "0.0";
+    if (allBalances && allBalances.balances) {
+      // The token ID in storage typically matches the tokenIdentifier format without the last part (Vault)
+      if (tokenIdentifier in allBalances.balances) {
+        balance = allBalances.balances[tokenIdentifier];
       }
-    `;
+    }
 
-    const balance = await fcl.query({
-      cadence: script,
-      args: (arg, t) => [
-        arg(address, t.Address),
-        arg(publicPath, t.String)
-      ]
-    });
-
-    // Get token metadata if available
     let tokenInfo = {
       symbol: contractName,
       name: contractName
     };
     
-    try {
-      // Try to get token metadata if available
-      const metadataScript = `
-        import ${contractName} from 0x${contractAddress}
-        
-        pub fun main(): {String: String} {
-          let metadata: {String: String} = {}
-          
-          if ${contractName}.getVersion() != nil {
-            metadata["version"] = ${contractName}.getVersion()!
-          }
-          
-          if ${contractName}.getSymbol() != nil {
-            metadata["symbol"] = ${contractName}.getSymbol()!
-          }
-          
-          if ${contractName}.getName() != nil {
-            metadata["name"] = ${contractName}.getName()!
-          }
-          
-          return metadata
-        }
-      `;
-      
-      const metadata = await fcl.query({
-        cadence: metadataScript,
-        args: (arg, t) => []
-      });
-      
-      if (metadata.symbol) {
-        tokenInfo.symbol = metadata.symbol;
-      }
-      
-      if (metadata.name) {
-        tokenInfo.name = metadata.name;
-      }
-    } catch (error) {
-      // If metadata can't be fetched, continue with default values
-      console.warn("Could not fetch token metadata:", error.message);
-    }
-
     return {
       address,
       tokenIdentifier,

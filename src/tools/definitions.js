@@ -44,6 +44,25 @@ export const toolDefinitions = [
   },
   
   {
+    name: "get_token_balances_storage",
+    description: "Get all token balances from storage for a Flow address",
+    parameters: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description: "The Flow address to check (e.g., '0x1234...' or 'user.find')"
+        },
+        network: {
+          type: "string", 
+          description: "Network name (e.g., 'mainnet', 'testnet'). Defaults to mainnet."
+        }
+      },
+      required: ["address"]
+    }
+  },
+  
+  {
     name: "execute_script",
     description: "Execute a Cadence script on the Flow blockchain",
     parameters: {
@@ -156,7 +175,45 @@ export const toolDefinitions = [
       properties: {
         address: {
           type: "string",
-          description: "The Flow address (e.g., '0x1234...' or 'user.find')"
+          description: "The Flow address to check (e.g., '0x1234...' or 'user.find')"
+        },
+        network: {
+          type: "string", 
+          description: "Network name (e.g., 'mainnet', 'testnet'). Defaults to mainnet."
+        }
+      },
+      required: ["address"]
+    }
+  },
+  
+  {
+    name: "find_coa_accounts",
+    description: "Find Cadence Owned Accounts (COA) associated with Flow-EVM addresses",
+    parameters: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description: "The Flow address to check for associated Cadence Owned Accounts (COA) for EVM integration"
+        },
+        network: {
+          type: "string", 
+          description: "Network name (e.g., 'mainnet', 'testnet'). Defaults to mainnet."
+        }
+      },
+      required: ["address"]
+    }
+  },
+  
+  {
+    name: "get_account_nfts",
+    description: "Get NFT collections owned by a Flow account",
+    parameters: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description: "The Flow address to check (e.g., '0x1234...' or 'user.find')"
         },
         network: {
           type: "string", 

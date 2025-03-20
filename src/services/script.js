@@ -38,7 +38,7 @@ export async function executeScript(script, args = []) {
  * @param {Array} args - Raw arguments to format
  * @returns {Promise<Array>} - Formatted arguments
  */
-async function formatArguments(args) {
+export async function formatArguments(args) {
   // If args is not an array, make it one
   if (!Array.isArray(args)) {
     args = [];
@@ -83,7 +83,7 @@ async function formatArguments(args) {
  * @param {string} typeName - Type name
  * @returns {Object} - FCL type
  */
-function getFlowType(typeName) {
+export function getFlowType(typeName) {
   if (!typeName) {
     return t.String;
   }

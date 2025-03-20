@@ -4,26 +4,40 @@ import * as t from '@onflow/types';
 // Import tool implementations
 import { getFlowBalance } from '../services/balance.js';
 import { getTokenBalance } from '../services/balance.js';
+import { getTokenBalancesFromStorage } from '../services/token_storage.js';
+import { findCadenceOwnedAccounts } from '../services/coa_account.js';
 import { executeScript } from '../services/script.js';
 import { sendTransaction } from '../services/transaction.js';
 import { resolveDomain } from '../services/domain.js';
-import { getAccountInfo } from '../services/account.js';
+import { getAccountInfo, getAccountNFTs } from '../services/account.js';
+
+// Import network configurations
+import { networks } from '../config/networks.js';
 
 // Configure FCL based on environment
 const configureNetwork = (network = 'mainnet') => {
   network = network.toLowerCase();
   
-  if (network === 'testnet') {
-    fcl.config()
-      .put('accessNode.api', 'https://rest-testnet.onflow.org')
-      .put('flow.network', 'testnet');
-  } else if (network === 'mainnet') {
-    fcl.config()
-      .put('accessNode.api', 'https://rest-mainnet.onflow.org')
-      .put('flow.network', 'mainnet');
-  } else {
+  if (!networks[network]) {
     throw new Error(`Unsupported network: ${network}`);
   }
+  
+  const networkConfig = networks[network];
+  const fclConfig = fcl.config()
+    .put('accessNode.api', networkConfig.accessNode)
+    .put('flow.network', network);
+  
+  // Configure contract addresses
+  for (const [name, address] of Object.entries(networkConfig.contracts)) {
+    fclConfig.put(`0x${name}`, address);
+  }
+  
+  // Configure auditors if available
+  if (networkConfig.auditors && networkConfig.auditors.length > 0) {
+    fclConfig.put('flow.auditors', networkConfig.auditors);
+  }
+  
+  return fclConfig;
 };
 
 /**
@@ -58,6 +72,14 @@ export async function handleToolCall(toolName, parameters, sse) {
         );
         break;
         
+      case 'get_token_balances_storage':
+        result = await getTokenBalancesFromStorage(parameters.address);
+        break;
+        
+      case 'find_coa_accounts':
+        result = await findCadenceOwnedAccounts(parameters.address);
+        break;
+        
       case 'execute_script':
         result = await executeScript(
           parameters.script, 
@@ -81,6 +103,10 @@ export async function handleToolCall(toolName, parameters, sse) {
         
       case 'get_account_info':
         result = await getAccountInfo(parameters.address);
+        break;
+        
+      case 'get_account_nfts':
+        result = await getAccountNFTs(parameters.address);
         break;
         
       default:

@@ -1,42 +1,59 @@
 {
   "name": "@outblock/flow-mcp-server",
-  "version": "0.1.0",
-  "description": "Model Context Protocol (MCP) server for Flow blockchain with direct RPC communication",
-  "main": "src/index.js",
+  "version": "0.1.1",
+  "description": "Model Context Protocol (MCP) server for interacting with Flow blockchain",
+  "main": "build/index.js",
   "type": "module",
   "bin": {
     "flow-mcp-server": "./bin/cli.js"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "build": "mkdir -p build && bun build src/index.js --outdir build --target node",
+    "start": "node build/index.js",
+    "dev": "nodemon src/index.js",
+    "build": "bun build ./src/index.js --target node --outdir build",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "flow",
     "blockchain",
     "mcp",
-    "model-context-protocol",
-    "rpc"
+    "agent",
+    "ai"
   ],
-  "author": "lmcmz",
+  "author": "OutBlock",
   "license": "MIT",
   "dependencies": {
-    "@onflow/fcl": "^1.9.0",
-    "@onflow/types": "^1.1.0",
+    "@onflow/fcl": "^1.8.0",
+    "@onflow/types": "^1.2.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.18.3",
-    "express-sse": "^0.5.3",
-    "node-fetch": "^3.3.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "sse-express": "^1.0.2",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "bun": "^1.0.30"
+    "bun": "^1.0.11",
+    "nodemon": "^3.0.1"
   },
+  "files": [
+    "bin/",
+    "build/",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lmcmz/flow-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lmcmz/flow-mcp-server/issues"
+  },
+  "homepage": "https://github.com/lmcmz/flow-mcp-server#readme"
 }

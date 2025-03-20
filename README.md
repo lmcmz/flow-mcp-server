@@ -2,167 +2,130 @@
 
 Model Context Protocol (MCP) server for Flow blockchain with direct RPC communication.
 
-This server implements the Model Context Protocol and provides tools for interacting with the Flow blockchain directly through RPC calls.
+This server implements the Model Context Protocol and provides tools for interacting with the Flow blockchain directly through RPC calls. It can be used with AI assistants that support MCP.
 
 ## Features
 
 - Get account balances (FLOW and tokens)
 - Execute Flow scripts
 - Send transactions
-- Resolve domains to Flow addresses
+- Resolve domains to Flow addresses (.find and .fn)
 - Interact with Flow contracts
 - Full MCP compliance for AI agent integration
 
-## Setup
+## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/lmcmz/flow-mcp-server.git
-   cd flow-mcp-server
-   ```
+### Option 1: Run directly with npx (recommended for quick use)
 
-2. Install dependencies:
-   ```bash
-   # Using npm
-   npm install
-   
-   # Using Bun (recommended)
-   bun install
-   ```
+```bash
+# Run in HTTP server mode
+npx @outblock/flow-mcp-server
 
-3. (Optional) Create a `.env` file with your configuration:
-   ```
-   PORT=3000
-   FLOW_NETWORK=testnet  # Optional: defaults to 'mainnet' if not specified
-   ```
+# Run in stdio mode (for AI agent integration)
+npx @outblock/flow-mcp-server --stdio
+```
 
-   The server automatically uses the Flow mainnet by default. You only need to configure the environment if you want to use the testnet or a custom port.
+### Option 2: Install locally for development
+
+```bash
+# Clone the repository
+git clone https://github.com/lmcmz/flow-mcp-server.git
+cd flow-mcp-server
+
+# Install dependencies
+npm install
+
+# Create a .env file (optional)
+cp .env.example .env
+```
 
 ## Usage
 
-### Starting the server
+### Option 1: Starting via npx
+
+```bash
+# Run in HTTP server mode on default port (3000)
+npx @outblock/flow-mcp-server
+
+# Run in HTTP server mode on custom port
+npx @outblock/flow-mcp-server --port 8080
+
+# Run in stdio mode (for AI agent integration)
+npx @outblock/flow-mcp-server --stdio
+
+# Specify Flow network
+npx @outblock/flow-mcp-server --network testnet
+```
+
+### Option 2: Starting the local development server
 
 ```bash
 # Run in development mode with hot reload
-bun dev
+npm run dev
 
 # Run in production mode
-bun start
+npm run start
 
 # Build the server
-bun run build
+npm run build
+
+# Run with stdio mode directly
+node src/index.js
 ```
 
-### Using NPX Command
+### Environment Variables (optional)
 
-You can run the MCP server directly using npx without installation:
-
-```bash
-# Run using npx
-npx flow-mcp-server
-
-# Specify network and port
-npx flow-mcp-server --network testnet --port 3001
-
-# Get help for all options
-npx flow-mcp-server --help
-```
-
-Or install it globally:
-
-```bash
-# Install globally
-npm install -g flow-mcp-server
-
-# Run the globally installed version
-flow-mcp-server
-```
-
-### Command Line Options
+Create a `.env` file with your configuration:
 
 ```
-Options:
-  -p, --port <port>          Port to run the server on (default: 3000)
-  -n, --network <network>    Flow network to connect to (default: mainnet)
-  -a, --access-node <url>    Custom Flow access node URL
-  --stdio                    Run in stdio mode for direct integration
-  -h, --help                 Show this help text
+# Server configuration
+PORT=3000
+
+# Flow network configuration (mainnet or testnet)
+FLOW_NETWORK=mainnet
+FLOW_ACCESS_NODE=https://rest-mainnet.onflow.org
+
+# Optional: Add your default keys for development
+# FLOW_PRIVATE_KEY=
+# FLOW_ADDRESS=
 ```
 
-### Network Configuration
+## Usage with AI assistants
 
-The server automatically configures FCL with the appropriate contract addresses for the selected network. The following networks are supported:
+The server implements the Model Context Protocol which allows it to be used with AI assistants that support MCP.
 
-#### Mainnet
-The mainnet configuration includes contract addresses for:
-```javascript
-{
-  NonFungibleToken: '0x1d7e57aa55817448',
-  FungibleToken: '0xf233dcee88fe0abe',
-  MetadataViews: '0x1d7e57aa55817448',
-  NFTCatalog: '0x49a7cda3a1eecc29',
-  NFTRetrieval: '0x49a7cda3a1eecc29',
-  Find: '0x097bafa4e0b48eef',
-  Flowns: '0x233eb012d34b0070',
-  Domains: '0x233eb012d34b0070',
-  FlowToken: '0x1654653399040a61',
-  TransactionGeneration: '0xe52522745adf5c34',
-  FlowFees: '0xf919ee77447b7497',
-  StringUtils: '0xa340dc0a4ec828ab',
-  HybridCustody: '0xd8a7e05a7ac670c0',
-  ViewResolver: '0x1d7e57aa55817448'
-}
+### Example usage with Claude
+
 ```
+To use the Flow blockchain, I'll need to use a Flow MCP server. Please run:
 
-#### Testnet
-The testnet configuration includes contract addresses for testnet environment.
+npx @outblock/flow-mcp-server --stdio
 
-You can also see the current network configuration by accessing the `/networks` endpoint.
-
-### MCP Configuration
-
-To configure an AI assistant to use Flow MCP, use the following configuration:
-
-```json
-{
-  "mcpServers": {
-    "flow-mcp": {
-      "command": "npx",
-      "args": ["-y", "flow-mcp-server", "--stdio"],
-      "env": {
-        "FLOW_NETWORK": "mainnet"  // Optional: defaults to 'mainnet', can be set to 'testnet'
-      }
-    }
-  }
-}
+Then I'll be able to check account balances, execute scripts, and interact with Flow contracts.
 ```
-
-Or with direct HTTP API:
-
-```json
-{
-  "mcpServers": {
-    "flow-mcp": {
-      "serverUrl": "http://localhost:3000",
-      "env": {
-        "FLOW_NETWORK": "mainnet"
-      }
-    }
-  }
-}
-```
-
-### Usage with AI assistants
-
-The server implements the Model Context Protocol which allows it to be used with AI assistants that support MCP. It exposes various tools for interacting with the Flow blockchain.
 
 ## API Endpoints
+
+When running in HTTP mode, the following endpoints are available:
 
 - `/sse` - SSE endpoint for real-time communication
 - `/messages` - Endpoint for sending tool requests
 - `/health` - Health check endpoint
 - `/` - Server information
-- `/networks` - Network configuration information
+
+### Example HTTP API call
+
+```bash
+curl -X POST http://localhost:3000/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "get_flow_balance",
+    "parameters": {
+      "address": "0x1654653399040a61",
+      "network": "mainnet"
+    }
+  }'
+```
 
 ## Available Tools
 
@@ -171,22 +134,7 @@ The server implements the Model Context Protocol which allows it to be used with
 - `execute_script` - Execute a Cadence script
 - `send_transaction` - Send a signed transaction to the Flow blockchain
 - `resolve_domain` - Resolve a .find or .fn domain to a Flow address
-
-## Publishing to npm
-
-If you want to publish your own version of this package:
-
-```bash
-# Login to npm
-npm login
-
-# Publish the package
-npm publish
-
-# Update the package
-npm version patch  # or minor or major
-npm publish
-```
+- `get_account_info` - Get detailed information about a Flow account
 
 ## License
 
